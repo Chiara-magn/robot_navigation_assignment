@@ -21,14 +21,14 @@ namespace robot_navigation_assignment
         NavigationServer(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
 
     private:
-        rclcpp_action::Server<robot_navigation_assignment::action::MoveToPose>::SharedPtr action_server_;
+        rclcpp_action::Server<robot_navigation_assignment::action::MoveToPose>::SharedPtr action_server_; 
 
         // TF2: buffer e listener per le trasformazioni
-        std::shared_ptr<tf2_ros::Buffer> tf_buffer_;
-        std::shared_ptr<tf2_ros::TransformListener> tf_listener_;
+        std::shared_ptr<tf2_ros::Buffer> tf_buffer_; // tf buffer
+        std::shared_ptr<tf2_ros::TransformListener> tf_listener_; // listens to the tf, updates the buffer
 
         // Publisher per i comandi di velocità
-        rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub_;
+        rclcpp::Publisher<geometry_msgs::msg::Twist>::SharedPtr cmd_vel_pub_; // cmd vel
 
         // callback declarations
         // handle goal callback declaration
@@ -51,7 +51,7 @@ RCLCPP_COMPONENTS_REGISTER_NODE(robot_navigation_assignment::NavigationServer)
 
 robot_navigation_assignment::NavigationServer::NavigationServer(
     const rclcpp::NodeOptions & options)
-: Node("navigation_server", options)
+: Node("navigation_server", options) 
 {
     using MoveToPose = robot_navigation_assignment::action::MoveToPose; // rename
 
@@ -63,11 +63,11 @@ robot_navigation_assignment::NavigationServer::NavigationServer(
         std::bind(&NavigationServer::handle_accepted, this, std::placeholders::_1)
     );
 
-        // TF2 setup: creo il buffer e il listener
+    // TF2 setup: buffer and listener
     tf_buffer_ = std::make_shared<tf2_ros::Buffer>(this->get_clock());
     tf_listener_ = std::make_shared<tf2_ros::TransformListener>(*tf_buffer_);
 
-    // Publisher per i comandi di velocità
+    // Publisher for command velocities
     cmd_vel_pub_ = this->create_publisher<geometry_msgs::msg::Twist>("/cmd_vel", 10);
 }
 
@@ -114,9 +114,9 @@ void robot_navigation_assignment::NavigationServer::execute(
     
 rclcpp::Rate rate(10.0);  // 10 Hz
 
-    while (rclcpp::ok()) {
+    while (rclcpp::ok()) { // loop until node is active
 
-        // 1. Controllo se il goal è stato cancellato
+        // 1. Check if goal has been canceled
         if (goal_handle->is_canceling()) {
             result->success = false;
             RCLCPP_INFO(this->get_logger(), "Goal canceled");
@@ -124,7 +124,7 @@ rclcpp::Rate rate(10.0);  // 10 Hz
             return;
         }
 
-         // 2. Trasformo la goal pose nel frame del robot
+        // 2. Transforms goal pose into robot frame 
 
         // Creo una PoseStamped nel frame "map" (dove l'utente dà la goal)
         geometry_msgs::msg::PoseStamped goal_pose_map;
@@ -136,28 +136,28 @@ rclcpp::Rate rate(10.0);  // 10 Hz
         geometry_msgs::msg::PoseStamped goal_pose_robot;
 
         try {
-            // Trasformo la goal pose da "map" → "base_link"
+            // Transforms goal pose robot from "map" to "base_link"
             goal_pose_robot = tf_buffer_->transform(
                 goal_pose_map,
                 "base_link",
                 tf2::durationFromSec(0.1)
             );
-        }
+        } // if TF not ready, warning and waits a cycle
         catch (tf2::TransformException &ex) {
             RCLCPP_WARN(this->get_logger(), "TF transform failed: %s", ex.what());
             rate.sleep();
-            continue;   // riprova nel prossimo ciclo
+            continue;   // retries after a cycle
         }
 
 
-        // 3. Ottengo la posizione attuale del robot nel frame "map"
+        // 3. I get the current robot position in "map" frame
         geometry_msgs::msg::TransformStamped tf_robot;
 
         try {
-            // Trasformazione da map → base_link
+            //  map → base_link
             tf_robot = tf_buffer_->lookupTransform(
-                "map",          // frame di riferimento
-                "base_link",    // frame del robot
+                "map",          // reference frame
+                "base_link",    // robot frame
                 tf2::TimePointZero
             );
         }
@@ -182,43 +182,43 @@ rclcpp::Rate rate(10.0);  // 10 Hz
 
         // 4. Calcolo distanza e angolo verso la goal
 
-        // Coordinate della goal trasformata nel frame del robot
+        // Extracts current robot position 
         double gx = goal_pose_robot.pose.position.x;
         double gy = goal_pose_robot.pose.position.y;
 
-        // Distanza dal robot alla goal
+        // Distance between robot and goal
         double distance = std::sqrt(gx*gx + gy*gy);
 
-        // Angolo verso la goal (nel frame del robot)
+        // goal angle wrt current position in robot frame
         double angle = std::atan2(gy, gx);
 
-        // 5. Controllo del movimento
+        // 5. Movement control
 
         geometry_msgs::msg::Twist cmd;
 
-        // Se siamo lontani dalla goal
+        // If far from goal
         if (distance > 0.05) {
 
-            // Ruota verso la goal
+            // Rotates towards goal
             cmd.angular.z = 1.0 * angle;
 
-            // Avanza solo se l'angolo è piccolo (cioè se sei quasi allineata)
+            // only if angle is little 
             if (std::fabs(angle) < 0.2) {
                 cmd.linear.x = 0.2;
             }
         } 
         else {
-            // Se siamo vicini, fermiamo il robot
+            // If near, robot stops
             cmd.linear.x = 0.0;
             cmd.angular.z = 0.0;
             cmd_vel_pub_->publish(cmd);
-            break;  // goal raggiunta → usciamo dal while
+            break;  
         }
 
-        // Pubblico il comando di velocità
+        // command velocity publication
         cmd_vel_pub_->publish(cmd);
 
-// 6. Feedback reale all'action client
+// 6. Real feedback on action server
 
         feedback->progress = std::clamp(
             (1.0 - std::min(distance / 2.0, 1.0)) * 100.0,
