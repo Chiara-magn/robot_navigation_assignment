@@ -15,7 +15,18 @@ public:
     : Node("move_to_pose_client")
     {
         // action client
+        client_ = rclcpp_action::create_client<MoveToPose>(
+        this,
+        "move_to_pose"
+        );
         // subscribe to /goal_pose
+        sub_ = this->create_subscription<geometry_msgs::msg::PoseStamped>(
+        "/goal_pose",
+        10,
+        std::bind(&MoveToPoseClient::goal_callback, this, std::placeholders::_1)
+        );
+
+        RCLCPP_INFO(this->get_logger(), "MoveToPoseClient initialized.");
     }
 
 private:
