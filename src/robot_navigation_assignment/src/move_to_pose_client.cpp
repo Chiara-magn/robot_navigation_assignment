@@ -31,12 +31,18 @@ public:
 
 private:
     // declare action client
+    rclcpp_action::Client<MoveToPose>::SharedPtr client;
     //  declare subscription
-
-    // TODO: callback for /goal_pose
+    rclcpp_action::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_;
+    // callback for /goal_pose
     void goal_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
     {
+
         // wait for server
+        if (!client_->wait_for_action_server(std::chrono::seconds(2))) {
+        RCLCPP_ERROR(this->get_logger(), "Action server not available.");
+        return;
+        }
         // create goal
         // send goal
     }
