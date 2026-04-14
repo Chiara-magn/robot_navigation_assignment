@@ -31,9 +31,9 @@ public:
 
 private:
     // declare action client
-    rclcpp_action::Client<MoveToPose>::SharedPtr client;
+    rclcpp_action::Client<MoveToPose>::SharedPtr client_;
     //  declare subscription
-    rclcpp_action::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_;
+    rclcpp::Subscription<geometry_msgs::msg::PoseStamped>::SharedPtr sub_;
     // callback for /goal_pose
     void goal_callback(const geometry_msgs::msg::PoseStamped::SharedPtr msg)
     {
@@ -68,15 +68,31 @@ private:
         GoalHandle::SharedPtr,
         const std::shared_ptr<const MoveToPose::Feedback> feedback)
     {
-        // handle feedback
-        
+        // handle feedback  
+    RCLCPP_INFO(
+        this->get_logger(),
+        "Current pose: x=%f, y=%f, theta=%f",
+        feedback->current_x,
+        feedback->current_y,
+        feedback->current_theta
+    );
     }
 
     //  result callback
     void result_callback(const GoalHandle::WrappedResult & result)
     {
         // handle result
+        if (result.code == rclcpp_action::ResultCode::SUCCEEDED) {
+            if (result.result->success) {
+                RCLCPP_INFO(this->get_logger(), "Final result: SUCCESS");
+            } else {
+                RCLCPP_WARN(this->get_logger(), "Final result: FAILED (server returned success=false)");
+            }
+        } else {
+            RCLCPP_ERROR(this->get_logger(), "Action did not succeed (ABORTED or CANCELED)");
+        }
     }
+
 };
 
 int main(int argc, char ** argv)
