@@ -43,8 +43,24 @@ private:
         RCLCPP_ERROR(this->get_logger(), "Action server not available.");
         return;
         }
-        // create goal
-        // send goal
+        // create goal, goal message
+        MoveToPose::Goal goal;
+        goal.target_pose = msg->pose;
+
+        RCLCPP_INFO(this->get_logger(), "Sending goal to action server...");
+        auto options = rclcpp_action::Client<MoveToPose>::SendGoalOptions();
+
+        options.feedback_callback =
+            std::bind(&MoveToPoseClient::feedback_callback, this,
+                    std::placeholders::_1, std::placeholders::_2);
+
+        options.result_callback =
+            std::bind(&MoveToPoseClient::result_callback, this,
+                    std::placeholders::_1);
+
+        // send the goal 
+        client_->async_send_goal(goal, options);
+
     }
 
     // feedback callback
@@ -53,6 +69,7 @@ private:
         const std::shared_ptr<const MoveToPose::Feedback> feedback)
     {
         // handle feedback
+        
     }
 
     //  result callback
